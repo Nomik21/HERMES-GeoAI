@@ -1,0 +1,78 @@
+digraph HERMES {
+  rankdir=TB;
+  bgcolor="white";
+  fontname="Arial";
+  labelloc="t";
+  ranksep=0.35;
+  nodesep=0.22;
+  node [fontname="Arial", fontsize=14, shape=box, style="rounded,filled", margin="0.14,0.08"];
+  edge [fontname="Arial", fontsize=11, color="#444444", arrowsize=0.8];
+
+  IN [label="Inputs\npost_sv_single | post_rs_single\npost_paired_sv_rs\nbitemporal_sv | bitemporal_rs", fillcolor="#eef4fb", color="#2b5f8a"];
+  CTX [label="Case Context and CrewAI Orchestration\ncase_id | hazard_type | source_types | pair_id\nmain.py -> Hermes crew (crew.py) -> Process.sequential", fillcolor="#eef4fb", color="#2b5f8a"];
+
+  subgraph cluster_agents {
+    label="Four HERMES Agents (sequential)";
+    fontname="Arial";
+    fontsize=13;
+    style="filled";
+    fillcolor="#fbfbfb";
+    color="#9aa5b1";
+
+    GPA [label="GeoPerception Agent (GPA)\nRole: mode + hazard recognition\nModel: OpenAI GPT-4.1-mini\nTool: geo_perception_tool\nOutput: outputs/intermediate/\n<case_id>_gpa.json", fillcolor="white", color="#1f2933", penwidth=1.6];
+    GIRA [label="GeoImageRestoration Agent (GIRA)\n(optional, guarded)\nRole: quality-gated restoration\nModel: Gemini planner (tool-select)\nTool: GeoImageRestorationTool\nOutput: outputs/intermediate/\n<case_id>_gira.json", fillcolor="white", color="#1f2933", penwidth=1.6];
+    GDAA [label="GeoDamageAnalysis Agent (GDAA)\nRole: scenario routing + severity /\nobject-indicator detection\nModel: Gemini 2.5 Flash family\nTool: GeoDamageAnalysisTool\nOutput: outputs/intermediate/\n<case_id>_gdaa.json", fillcolor="white", color="#1f2933", penwidth=1.6];
+    GRA [label="GeoReasoning Agent (GRA)\nRole: locked evidence-set synthesis\n+ reporting\nModel: Gemini 2.5 Flash (optional)\nTool: GeoReasoningTool\nOutput: outputs/<case_id>.json/.md/.html", fillcolor="white", color="#1f2933", penwidth=1.6];
+
+    GPA -> GIRA -> GDAA -> GRA;
+    { rank=same; GPA; GIRA; GDAA; GRA; }
+  }
+
+  subgraph cluster_artefacts {
+    label="Persisted JSON Artefacts and Final Reports";
+    fontname="Arial";
+    fontsize=13;
+    style="filled";
+    fillcolor="#fdf8ec";
+    color="#c9ab5a";
+
+    GPA_J [label="<case_id>_gpa.json", fillcolor="#fdf6e3", color="#8a6d1f", peripheries=2];
+    GIRA_J [label="<case_id>_gira.json", fillcolor="#fdf6e3", color="#8a6d1f", peripheries=2];
+    GDAA_J [label="<case_id>_gdaa.json", fillcolor="#fdf6e3", color="#8a6d1f", peripheries=2];
+    REP [label="<case_id>.json\n<case_id>.md\n<case_id>.html", fillcolor="#e9f7f6", color="#1c6e68", penwidth=1.4];
+
+    { rank=same; GPA_J; GIRA_J; GDAA_J; REP; }
+  }
+
+  subgraph cluster_eval {
+    label="Evaluation Layer";
+    fontname="Arial";
+    fontsize=13;
+    style="filled";
+    fillcolor="#fdeff1";
+    color="#d98ba0";
+
+    E1 [label="Eval 1\nHazard classification", fillcolor="#fdeef0", color="#a3234a"];
+    E2 [label="Eval 2\nInput-mode recognition", fillcolor="#fdeef0", color="#a3234a"];
+    E3 [label="Eval 3\nSeverity estimation\n(NCSE)", fillcolor="#fdeef0", color="#a3234a"];
+    E4 [label="Eval 4\nObject-indicator\ndetection", fillcolor="#fdeef0", color="#a3234a"];
+    E5 [label="Eval 5\nInternal consistency\n(LLM-judge)", fillcolor="#fdeef0", color="#a3234a"];
+    E6 [label="Eval 6\nStrict operational\nquality (LLM-judge)", fillcolor="#fdeef0", color="#a3234a"];
+
+    { rank=same; E1; E2; E3; E4; E5; E6; }
+  }
+
+  IN -> CTX -> GPA;
+
+  GPA -> GPA_J;
+  GIRA -> GIRA_J;
+  GDAA -> GDAA_J;
+  GRA -> REP;
+
+  GPA_J -> E1;
+  GPA_J -> E2;
+  GDAA_J -> E3;
+  GDAA_J -> E4;
+  REP -> E5 [label="report +\nevidence set", fontsize=10];
+  REP -> E6 [label="final report", fontsize=10];
+}

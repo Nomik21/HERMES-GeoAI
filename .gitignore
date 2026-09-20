@@ -1,0 +1,62 @@
+# --- Secrets / environment ---
+.env
+*.env
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Raw datasets (private / not for public repo) ---
+/data/
+
+# --- Generated outputs / runtime artefacts ---
+/outputs/
+/evaluation/
+/restored_images/
+/to_restore/
+
+# --- Generated result charts (regenerate from notebooks/hermes_evaluation_visualization.ipynb) ---
+/figures/evaluation_visualizations/
+
+# --- Thesis (Word docs, backups, generated reports -- not part of the public codebase) ---
+/thesis/
+*.docx
+*.doc
+
+# --- CrewAI scaffold leftovers not specific to HERMES ---
+/knowledge/
+/report.md
+/AGENTS.md
+
+# --- Backups / temp files ---
+*.bak*
+*_BACKUP*
+*.tmp
+*.log
+logs/
+
+# --- Claude Code local tool settings ---
+.claude/
+
+# --- IDE ---
+.vscode/
+.idea/
+
+# --- Jupyter ---
+.ipynb_checkpoints/

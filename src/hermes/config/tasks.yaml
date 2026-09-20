@@ -1,0 +1,188 @@
+geo_perception_task:
+  description: >
+    Analyze the provided disaster-related image case using the GeoPerceptionTool.
+
+    The input may contain one or two images. Use the GeoPerceptionTool with the
+    provided image paths. Determine the input mode, the most likely hazard type,
+    whether each image requires restoration, and which downstream HERMES agents
+    should be invoked next.
+
+    Input image paths:
+    {image_paths}
+
+  expected_output: >
+    A valid structured JSON-style response returned by the GeoPerceptionTool,
+    containing mode_and_hazard, reasoning_text, restoration, and tool_plan.
+
+  agent: geo_perception_agent
+
+geo_image_restoration_task:
+  description: >
+    Restore or validate the image quality of the provided disaster-related image case
+    using the GeoImageRestorationTool.
+
+    The input case may contain either one image or multiple images. For paired-image
+    or collection cases, you MUST call the GeoImageRestorationTool with image_paths,
+    not only image_path.
+
+    Use the following inputs:
+    - image_paths: {image_paths}
+    - image_path: {image_path}
+    - source_types: {source_types}
+    - source_type: {source_type}
+    - hazard_type: {hazard_type}
+    - pair_id: {pair_id}
+
+    The restoration tool must diagnose image-quality problems, compute the
+    quality score before restoration, decide whether restoration is needed,
+    select the appropriate deterministic restoration tool chain, apply restoration,
+    compute the quality score after restoration, and accept the restored image
+    only if the quality improvement is sufficient.
+
+    When calling the GeoImageRestorationTool, use the following default parameters
+    unless explicitly instructed otherwise:
+    - output_dir: "outputs/restored"
+    - q_thresh: 0.35
+    - min_delta_q: 0.01
+    - mode: "planner"
+    - hazard_type: use {hazard_type}
+
+    Tool-calling rules:
+    - If image_paths contains more than one path separated by semicolon ';',
+      call GeoImageRestorationTool with:
+        image_paths: {image_paths}
+        source_types: {source_types}
+        hazard_type: {hazard_type}
+        output_dir: "outputs/restored"
+        q_thresh: 0.35
+        min_delta_q: 0.01
+        mode: "planner"
+
+    - If image_paths contains only one image, call GeoImageRestorationTool with:
+        image_path: {image_path}
+        source_type: {source_type}
+        hazard_type: {hazard_type}
+        output_dir: "outputs/restored"
+        q_thresh: 0.35
+        min_delta_q: 0.01
+        mode: "planner"
+
+    Do not discard the second image in bitemporal or paired-view scenarios.
+    For multi-image cases, the output must be a pair-level or collection-level
+    restoration report using the full case_id/pair_id.
+
+  expected_output: >
+    A valid structured JSON-style response returned by the GeoImageRestorationTool.
+    For single-image cases, it should contain image, input_path, source_type,
+    needs_restoration, accepted, final_path, restored_path, tool_chain, Q_before,
+    Q_after, delta_Q, problems, defect_scores, and decision.
+    For multi-image cases, it should contain input_paths, source_types,
+    final_paths, restored_paths, accepted, needs_restoration, results, and
+    pair-level intermediate metadata.
+
+  agent: geo_image_restoration_agent
+
+geo_damage_analysis_task:
+  description: >
+    Analyze the disaster-related image case using the GeoDamageAnalysisTool.
+
+    Use the structured outputs of the previous HERMES agents when available.
+    The GeoPerceptionAgent provides the predicted input mode, hazard type,
+    source/view types, restoration needs, and downstream plan. The
+    GeoImageRestorationAgent provides final image paths when restoration has
+    been applied.
+
+    When calling the GeoDamageAnalysisTool, use the final/restored image path
+    or paths if available. If no restoration was applied, use the original
+    image path or paths. The tool must operate in automatic routing mode unless
+    an explicit analysis_mode is provided.
+
+    The GeoDamageAnalysisTool supports four scenarios:
+    - pre_post_svi: before/after street-view image comparison
+    - cross_view_svi_rsi: post-disaster satellite/aerial and street-view pair
+    - wildfire_building: single street-view wildfire building damage classification
+    - object_detection: zero-shot damage object detection and localization
+
+    Use the following inputs:
+    - image_paths: {image_paths}
+    - source_types: {source_types}
+    - hazard_type: {hazard_type}
+    - pred_mode: {pred_mode}
+    - analysis_mode: {analysis_mode}
+    - pair_id: {pair_id}
+    - visualize: {visualize}
+
+    If analysis_mode is "auto", allow the GeoDamageAnalysisTool to select the
+    appropriate scenario using pred_mode, source_types, hazard_type, and the
+    number of image paths.
+
+  expected_output: >
+    A valid structured JSON-style response returned by the GeoDamageAnalysisTool.
+    The output must include analysis_mode, pair_id, source_type or source types,
+    hazard_type, image path information, damage presence or detected objects,
+    severity or damage class when applicable, confidence when applicable,
+    evidence or detections, downstream notes, and any generated annotated image
+    path when object detection visualization is performed.
+
+  agent: geo_damage_analysis_agent
+
+geo_reasoning_task:
+  description: >
+    Produce the final HERMES situational awareness report using the GeoReasoningTool.
+
+    This is the final task of the HERMES pipeline. Do not re-analyze the imagery
+    directly. Instead, synthesize the structured outputs produced by the previous
+    agents:
+
+    1. GeoPerceptionAgent output:
+       - input mode / pred_mode
+       - hazard type
+       - source/view types
+       - restoration need
+       - downstream plan
+
+    2. GeoImageRestorationAgent output:
+       - restoration decision
+       - whether restoration was accepted
+       - final image path or paths
+       - restored image path or paths
+       - image quality scores when available
+
+    3. GeoDamageAnalysisAgent output:
+       - selected damage-analysis scenario
+       - damage presence
+       - severity or domain-specific class
+       - confidence
+       - detected objects, indicators, or evidence
+       - annotated image path when available
+
+    Use the GeoReasoningTool to generate a final report. The report must include:
+    - case ID
+    - type of disaster
+    - input mode
+    - image restoration status
+    - final damage assessment
+    - object recognition summary
+    - evidence chain
+    - severity rationale
+    - causal interpretation
+    - uncertainties and limitations
+    - recovery or verification recommendations
+    - final report paragraph
+    - paths to saved JSON, Markdown, and HTML report files
+
+    For the first integration test, call the GeoReasoningTool with:
+    - case_id: {pair_id}
+    - output_dir: "outputs/reports"
+    - use_llm: true
+    - save_report: true
+
+    The gpa_report, gira_report, and gdaa_report arguments must be filled using
+    the actual outputs of the previous three tasks.
+
+  expected_output: >
+    A valid structured JSON-style response returned by the GeoReasoningTool,
+    containing the final HERMES situational awareness report and the saved report
+    file paths: report_json_path, report_markdown_path, and report_html_path.
+
+  agent: geo_reasoning_agent
